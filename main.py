@@ -23,7 +23,7 @@ async def get_random_vtb_api(url: str, params: dict):
     return await Api(url=url, method="GET", credential=Credential()).update_params(**params).result
 
 
-@register("dd", "Sasaki", "输入/dd随机推一个管人", "1.0.0", "repo url")
+@register("dd", "Sasaki", "输入/dd随机推一个管人", "1.0.0", "https://github.com/Wave233Lee/astrbot_plugin_random_vtb")
 class MyPlugin(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
