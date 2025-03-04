@@ -1,0 +1,16 @@
+{
+    "max_page": {
+        "description": "max_page",
+        "type": "int",
+        "hint": "直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间，默认是4",
+        "obvious_hint": true,
+        "default": 4
+    },
+    "interval_seconds": {
+        "description": "interval_seconds",
+        "type": "int",
+        "hint": "命令响应间隔，秒",
+        "obvious_hint": true,
+        "default": 10
+    }
+}

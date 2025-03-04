@@ -1,9 +1,13 @@
-# helloworld
+# Random_VTB 随机管人插件
+> 赫赫，管人痴
 
-AstrBot 插件模板
+## 目前支持的功能
+- /dd （随机推送一个正在直播的管人直播间）
+- /dd 虚拟Singer（可指定B站虚拟区下子分区）
+![效果预览](https://img.picui.cn/free/2025/03/04/67c6e8f4ecad7.png)
 
-A template plugin for AstrBot plugin feature
+## 目前支持的配置
+- max_page: 直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间，默认是8
+- interval_seconds: 命令响应间隔，默认10秒
 
-# 支持
-
-[帮助文档](https://astrbot.app)
+> 看管人，就来5424
