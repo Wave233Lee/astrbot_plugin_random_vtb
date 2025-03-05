@@ -6,7 +6,7 @@ from typing import Dict, Optional
 import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
-from constant import *
+from .constant import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
 from astrbot.api.star import Context, Star, register
