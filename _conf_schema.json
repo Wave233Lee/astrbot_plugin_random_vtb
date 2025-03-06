@@ -9,7 +9,7 @@
     "interval_seconds": {
         "description": "interval_seconds",
         "type": "int",
-        "hint": "命令响应间隔，秒",
+        "hint": "命令响应间隔默认10秒",
         "obvious_hint": true,
         "default": 10
     }

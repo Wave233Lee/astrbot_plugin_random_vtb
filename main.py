@@ -20,14 +20,14 @@ from bilibili_api.utils.network import Api
 DEFAULT_CFG = {
     "room_mapping": {
         "4075": "22924075",
-        "0993": "23260993",
-        "菇菇宝贝": "23147531"
+        "0993": "23260993"
     }
 }
 DATA_PATH = "data/astrbot_plugin_random_vtb.json"
 
 # 用于跟踪每个用户的状态，防止重复请求，重复间隔可配置
 DD_USER_STATES: Dict[str, Optional[float]] = {}
+LG_USER_STATES: Dict[str, Optional[float]] = {}
 
 
 @register("astrbot_plugin_random_vtb", "Sasaki", "输入/dd随机推一个管人", "1.0.0",
@@ -104,7 +104,7 @@ class MyPlugin(Star):
         return CommandResult(chain=chain, use_t2i_=False)
 
     @filter.command("嗨幕")
-    async def light(self, event: AstrMessageEvent):
+    async def order(self, event: AstrMessageEvent):
         """获取指定直播间号管人直播间
            /嗨幕 5424（直接推送指定直播间）
            /嗨幕 添加 4075 22924075（添加直播间号代称，代称已存在会覆盖）
@@ -188,6 +188,31 @@ class MyPlugin(Star):
         ]
         return CommandResult(chain=chain, use_t2i_=False)
 
+    @filter.command("点灯")
+    async def lighting(self, event: AstrMessageEvent):
+        """送出一个奇遇盲盒"""
+        interval_seconds = self.cfg["interval_seconds"]
+        user_id = event.get_sender_id()  # 获取用户ID
+        # 判断响应间隔
+        if user_id in LG_USER_STATES:
+            elapsed = int((time.time() - LG_USER_STATES[user_id]))
+            if elapsed < interval_seconds:
+                return CommandResult().message("没米了，等" + str(interval_seconds - elapsed) + "秒再送吧")
+        else:
+            # 缓存用户请求时间
+            LG_USER_STATES[user_id] = time.time()
+
+        sender_name = event.get_sender_name()
+        # 直接使用 random.choices 按权重随机选择（返回列表，取第一个元素）
+        item = random.choices(random_box, weights=[x['prob'] for x in random_box], k=1)[0]
+        plain = f"感谢{sender_name}赠送的【{item['name']}】轰动尼阿里嘎多～"
+        logger.info(plain)
+        chain = [
+            Plain(plain),
+            Image.fromURL(item['gif']),
+        ]
+        return CommandResult(chain=chain, use_t2i_=False)
+
     async def save_room_mapping(self, short_name: str, full_room_id: str):
         self.data['room_mapping'][short_name] = full_room_id
         with open(DATA_PATH, "w", encoding="utf-8") as f:
@@ -207,6 +232,10 @@ class MyPlugin(Star):
             elapsed = str(int((time.time() - last_time) / 1000))
             if elapsed > interval_seconds:
                 del DD_USER_STATES[user_id]
+        for user_id, last_time in LG_USER_STATES:
+            elapsed = str(int((time.time() - last_time) / 1000))
+            if elapsed > interval_seconds:
+                del LG_USER_STATES[user_id]
 
 
 async def call_bilibili_api(url: str, params: dict):
