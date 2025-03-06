@@ -1,6 +1,6 @@
 name: random_vtb # 这是你的插件的唯一识别名。
 desc: 为管人痴服务，输入/dd随机推一个管人直播间。 # 插件简短描述
-help: 输入/dd随机获取一个正在直播的管人直播间信息。 # 插件的帮助信息
-version: v1.0 # 插件版本号。格式：v1.1.1 或者 v1.1
+help: 输入/dd随机获取一个正在直播的管人直播间信息，更多功能详见README。 # 插件的帮助信息
+version: v1.1.0 # 插件版本号。格式：v1.1.1 或者 v1.1
 author: Sasaki # 作者
 repo: https://github.com/Wave233Lee/astrbot_plugin_random_vtb # 插件的仓库地址
