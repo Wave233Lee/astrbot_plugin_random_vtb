@@ -2,6 +2,7 @@ import json
 import os
 import random
 import time
+import hashlib
 from typing import Dict, Optional
 
 import apscheduler
@@ -72,12 +73,21 @@ class MyPlugin(Star):
         if self.cfg["max_page"]:
             max_page = int(self.cfg["max_page"])
         page = random.randint(1, max_page)
+        # 时间戳
+        wts = round(time.time())
+        # 阿B的密钥（可能随前端更新而变更）
+        e = "ea1db124af3c7062474693fa704f4ff8"
         params = {
-            "platform": "web",
-            "parent_area_id": "9",
             "area_id": area_id,
             "page": page,
+            "parent_area_id": "9",
+            "platform": "web",
+            "wts": wts,
         }
+        q = "&".join(f"{key}={value}" for key, value in params.items()) + e
+        # 拼接之后取MD5
+        w_rid = hashlib.md5(q.encode('utf-8')).hexdigest()
+        params = {**params, "w_rid": w_rid}
 
         result = await call_bilibili_api(url, params)
 
