@@ -8,7 +8,8 @@
 - /嗨幕 添加 4075 22924075（添加直播间号代称，代称已存在会覆盖）
 - /嗨幕 删除 4075 22924075（删除直播间号代称）
 - /点灯（什么？你问点灯是啥，0点来5424告诉你答案）
-![效果预览](https://img.picui.cn/free/2025/03/04/67c6e8f4ecad7.png)
+
+<img src="https://alist.wavelee.top/p/Screenshot_9d26c6446fd7bb8e41d99b6262b17def.png?sign=gFq-vWJpngwAIKulKAFOiycz_zMfeVLO_xjfHvo0IBE=:0" width="420px">
 
 ## 目前支持的配置
 - max_page: 直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间，默认是8
