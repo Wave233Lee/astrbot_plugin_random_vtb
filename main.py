@@ -2,13 +2,15 @@ import json
 import os
 import random
 import time
-import hashlib
+import urllib.parse
+import urllib
 from typing import Dict, Optional
 
 import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
 
+from .bilibili_api_sign import calculate_wrid
 from .constant import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
@@ -29,6 +31,11 @@ DATA_PATH = "data/astrbot_plugin_random_vtb.json"
 # 用于跟踪每个用户的状态，防止重复请求，重复间隔可配置
 DD_USER_STATES: Dict[str, Optional[float]] = {}
 LG_USER_STATES: Dict[str, Optional[float]] = {}
+
+
+def v(s):
+    """字符偏移解密：每个字符Unicode减1"""
+    return ''.join(chr(ord(c) - 1) for c in s)
 
 
 @register("astrbot_plugin_random_vtb", "Sasaki", "输入/dd随机推一个管人", "1.0.0",
@@ -73,22 +80,24 @@ class MyPlugin(Star):
         if self.cfg["max_page"]:
             max_page = int(self.cfg["max_page"])
         page = random.randint(1, max_page)
-        # 时间戳
-        wts = round(time.time())
         # 阿B的密钥（可能随前端更新而变更）
-        api_secret = self.cfg["api_secret"]
-        e = api_secret
+        img_key = self.cfg["img_key"]
+        sub_key = self.cfg["sub_key"]
+        bili_ticket = self.cfg["bili_ticket"]
         params = {
             "area_id": area_id,
             "page": page,
             "parent_area_id": "9",
             "platform": "web",
-            "wts": wts,
+            "web_location": "444.253",
+            "w_webid": bili_ticket,
         }
-        q = "&".join(f"{key}={value}" for key, value in params.items()) + e
-        # 拼接之后取MD5
-        w_rid = hashlib.md5(q.encode('utf-8')).hexdigest()
-        params = {**params, "w_rid": w_rid}
+        w_rid, wts = calculate_wrid(params, v(img_key), v(sub_key))
+        params = {**params, "w_rid": w_rid, "wts": wts}
+
+        query_string = '&'.join([f"{k}={urllib.parse.quote(str(v))}" for k, v in dict(params).items()])
+        full_url = f"{url}?{query_string}"
+        logger.info(f"{full_url}")
 
         result = await call_bilibili_api(url, params)
 

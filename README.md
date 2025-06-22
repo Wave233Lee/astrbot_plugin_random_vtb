@@ -15,7 +15,9 @@
 - max_page: 直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间，默认是8
 - interval_seconds: 命令响应间隔，默认10秒
 
-## 可能存在的问题
-- 阿b给接口加上了时间戳和md5签名，签名用到的key可能会变更main.py:79
+## 必填的配置
+- 阿b给接口加上了签名，签名用到的key从前端js文件取 https://s1.hdslb.com/bfs/static/blive/live-region/static/js/chunk-vendors.*.js （*为随机字符）
+- 签名还需要ticket，从浏览器缓存里取，好像只有3天有效期
+> 可恶的阿姨😠
 
 > 看管人，就来5424
