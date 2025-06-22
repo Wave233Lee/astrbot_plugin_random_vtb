@@ -76,7 +76,8 @@ class MyPlugin(Star):
         # 时间戳
         wts = round(time.time())
         # 阿B的密钥（可能随前端更新而变更）
-        e = "ea1db124af3c7062474693fa704f4ff8"
+        api_secret = self.cfg["api_secret"]
+        e = api_secret
         params = {
             "area_id": area_id,
             "page": page,
