@@ -14,6 +14,7 @@ from .bilibili_api_sign import calculate_wrid
 from .constant import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
+from astrbot.api.event.filter import command
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.api.message_components import Image, Plain
@@ -49,6 +50,7 @@ class MyPlugin(Star):
                 f.write(json.dumps(DEFAULT_CFG, ensure_ascii=False, indent=4))
         with open(DATA_PATH, "r", encoding="utf-8-sig") as f:
             self.data = json.load(f)
+        self.credential = Credential(sessdata=self.cfg["sessdata"], buvid3=self.cfg["buvid3"], buvid4=self.cfg["buvid4"])
         self.scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
         self.scheduler.add_job(self.clear_cache, "cron", hour=0, minute=0)
         self.scheduler.start()
@@ -99,7 +101,7 @@ class MyPlugin(Star):
         full_url = f"{url}?{query_string}"
         logger.info(f"{full_url}")
 
-        result = await call_bilibili_api(url, params)
+        result = await self.call_bilibili_api(url, params)
 
         liver_list = result['list']
         random_item = random.choice(liver_list)  # 随机选择一个对象
@@ -123,7 +125,7 @@ class MyPlugin(Star):
 
         return CommandResult(chain=chain, use_t2i_=False)
 
-    @filter.command("嗨幕")
+    @command("嗨幕")
     async def order(self, event: AstrMessageEvent):
         """获取指定直播间号管人直播间
            /嗨幕 5424（直接推送指定直播间）
@@ -164,7 +166,7 @@ class MyPlugin(Star):
             "room_id": room_id,
         }
         try:
-            live_info = await call_bilibili_api(live_url, params)
+            live_info = await self.call_bilibili_api(live_url, params)
         except ResponseCodeException as e:
             logger.error(e)
             return CommandResult().message(f"纳尼，情报是假滴，直播间号{room_id}对吗")
@@ -173,7 +175,7 @@ class MyPlugin(Star):
         params = {
             "uid": live_info["uid"],
         }
-        usr_info = await call_bilibili_api(usr_url, params)
+        usr_info = await self.call_bilibili_api(usr_url, params)
         logger.debug("主播信息:" + str(json.dumps(usr_info, ensure_ascii=False)))
 
         u_info = dict(usr_info["info"])
@@ -208,7 +210,7 @@ class MyPlugin(Star):
         ]
         return CommandResult(chain=chain, use_t2i_=False)
 
-    @filter.command("点灯")
+    @command("点灯")
     async def lighting(self, event: AstrMessageEvent):
         """送出一个奇遇盲盒"""
         interval_seconds = self.cfg["interval_seconds"]
@@ -257,6 +259,5 @@ class MyPlugin(Star):
             if elapsed > interval_seconds:
                 del LG_USER_STATES[user_id]
 
-
-async def call_bilibili_api(url: str, params: dict):
-    return await Api(url=url, method="GET", credential=Credential()).update_params(**params).result
+    async def call_bilibili_api(self, url: str, params: dict):
+        return await Api(url=url, method="GET", credential=self.credential).update_params(**params).result

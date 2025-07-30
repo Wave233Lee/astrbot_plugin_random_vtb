@@ -16,8 +16,9 @@
 - interval_seconds: 命令响应间隔，默认10秒
 
 ## 必填的配置
-- 阿b给接口加上了签名，签名用到的key从前端js文件取 https://s1.hdslb.com/bfs/static/blive/live-region/static/js/chunk-vendors.*.js （*为随机字符）
-- 签名还需要ticket，从浏览器缓存里取，好像只有3天有效期
-> 可恶的阿姨😠
+- access_id 从页面元素里搜，不知道多久更新一次了
+- sessdata,buvid3,buvid4 从Cookie里取
+- img_key,sub_key两个key从前端js文件取 https://s1.hdslb.com/bfs/static/blive/live-region/static/js/chunk-vendors.*.js （*为随机字符），k很久没更新了用默认的就行（应该
+> 鉴权越来越严了，可恶的阿姨😠
 
 > 看管人，就来5424

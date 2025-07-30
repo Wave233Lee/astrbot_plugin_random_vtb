@@ -1,4 +1,22 @@
 {
+    "sessdata": {
+        "description": "sessdata",
+        "type": "string",
+        "hint": "sessdata 取自cookie",
+        "obvious_hint": true
+    },
+    "buvid3": {
+        "description": "buvid3",
+        "type": "string",
+        "hint": "buvid3 取自cookie",
+        "obvious_hint": true
+    },
+    "buvid4": {
+        "description": "buvid4",
+        "type": "string",
+        "hint": "buvid4 取自cookie",
+        "obvious_hint": true
+    },
     "max_page": {
         "description": "max_page",
         "type": "int",
