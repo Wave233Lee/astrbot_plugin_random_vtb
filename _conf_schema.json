@@ -1,55 +1,55 @@
 {
     "sessdata": {
-        "description": "sessdata",
+        "description": "鉴权参数 sessdata",
         "type": "string",
         "hint": "sessdata 取自cookie",
         "obvious_hint": true
     },
     "buvid3": {
-        "description": "buvid3",
+        "description": "鉴权参数 buvid3",
         "type": "string",
         "hint": "buvid3 取自cookie",
         "obvious_hint": true
     },
     "buvid4": {
-        "description": "buvid4",
+        "description": "鉴权参数 buvid4",
         "type": "string",
         "hint": "buvid4 取自cookie",
         "obvious_hint": true
+    },
+    "bili_ticket": {
+        "description": "鉴权参数 bili_ticket",
+        "type": "text",
+        "hint": "详细获取方式见文档",
+        "obvious_hint": true,
+        "default": "eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTA4NTcwMzAsImlhdCI6MTc1MDU5Nzc3MCwicGx0IjotMX0.bDsJP7jNrlwbaHlH9FoA-vQJVDTDZ4Ht3jqx0VhJKew"
     },
     "max_page": {
         "description": "max_page",
         "type": "int",
         "hint": "直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间，默认是4",
-        "obvious_hint": true,
+        "obvious_hint": false,
         "default": 4
     },
     "interval_seconds": {
         "description": "interval_seconds",
         "type": "int",
         "hint": "命令响应间隔默认10秒",
-        "obvious_hint": true,
+        "obvious_hint": false,
         "default": 10
     },
     "img_key": {
-        "description": "阿B前端JS文件里的密钥wbiImgKey，https://s1.hdslb.com/bfs/static/blive/live-region/static/js/chunk-vendors.ccd02dee.js",
+        "description": "阿b好久没更新了，用默认值就行",
         "type": "text",
-        "hint": "必填",
-        "obvious_hint": true,
+        "hint": "",
+        "obvious_hint": false,
         "default": "d569546b86c252:db:9bc7e99c5d71e5"
     },
     "sub_key": {
-        "description": "阿B前端JS文件里的密钥wbiSubKey，https://s1.hdslb.com/bfs/static/blive/live-region/static/js/chunk-vendors.ccd02dee.js",
+        "description": "阿b好久没更新了，用默认值就行",
         "type": "text",
-        "hint": "必填",
-        "obvious_hint": true,
+        "hint": "",
+        "obvious_hint": false,
         "default": "557251g796:g54:f:ee94g8fg969e2de"
-    },
-    "bili_ticket": {
-        "description": "阿B的Cookie里的值bili_ticket，有效期3天",
-        "type": "text",
-        "hint": "必填",
-        "obvious_hint": true,
-        "default": "eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTA4NTcwMzAsImlhdCI6MTc1MDU5Nzc3MCwicGx0IjotMX0.bDsJP7jNrlwbaHlH9FoA-vQJVDTDZ4Ht3jqx0VhJKew"
     }
 }
