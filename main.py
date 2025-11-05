@@ -196,7 +196,7 @@ class MyPlugin(Star):
             return CommandResult(chain=chain, use_t2i_=False)
 
         title = live_info['title']
-        keyframe = live_info['keyframe']
+        keyframe = live_info['keyframe'] or live_info['user_cover']
 
         plain = (
             f"赫赫，为你嗨幕到了【{uname}】\n"
