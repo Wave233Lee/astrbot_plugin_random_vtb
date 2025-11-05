@@ -18,8 +18,6 @@
 ## 必填的配置
 ### sessdata,buvid3,buvid4
 从Cookie里取
-### bili_ticket
-打开任意直播分区页面，例如 [虚拟主播](https://live.bilibili.com/p/eden/area-tags?areaId=0&parentAreaId=9) 从页面元素里搜 access_id，取后面的值
 ### img_key,sub_key
 很久没更新了用默认的配置就行
 

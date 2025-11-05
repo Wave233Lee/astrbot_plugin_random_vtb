@@ -17,13 +17,6 @@
         "hint": "buvid4 取自cookie",
         "obvious_hint": true
     },
-    "bili_ticket": {
-        "description": "鉴权参数 bili_ticket",
-        "type": "text",
-        "hint": "详细获取方式见文档",
-        "obvious_hint": true,
-        "default": "eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTA4NTcwMzAsImlhdCI6MTc1MDU5Nzc3MCwicGx0IjotMX0.bDsJP7jNrlwbaHlH9FoA-vQJVDTDZ4Ht3jqx0VhJKew"
-    },
     "max_page": {
         "description": "max_page",
         "type": "int",

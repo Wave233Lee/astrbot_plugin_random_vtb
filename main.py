@@ -10,7 +10,7 @@ import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
 
-from .bilibili_api_sign import calculate_wrid
+from .bilibili_api_sign import calculate_wrid,get_w_webid_from_bilibili
 from .constant import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
@@ -85,7 +85,7 @@ class MyPlugin(Star):
         # 阿B的密钥（可能随前端更新而变更）
         img_key = self.cfg["img_key"]
         sub_key = self.cfg["sub_key"]
-        bili_ticket = self.cfg["bili_ticket"]
+        bili_ticket = get_w_webid_from_bilibili()
         params = {
             "area_id": area_id,
             "page": page,

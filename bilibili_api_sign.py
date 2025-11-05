@@ -1,6 +1,8 @@
 import time
 import urllib.parse
 import hashlib
+import re
+import requests
 
 
 def v(s):
@@ -73,6 +75,47 @@ def calculate_wrid(params, img_key, sub_key):
     return w_rid, wts
 
 
+def extract_w_webid_from_html(html_content):
+    """从HTML中提取w_webid（access_id）"""
+    # 方法1: 正则匹配
+    pattern = r'window\._render_data_\s*=\s*({[^}]+})'
+    match = re.search(pattern, html_content)
+
+    if match:
+        try:
+            render_data = json.loads(match.group(1))
+            return render_data.get('access_id')
+        except:
+            pass
+
+    # 方法2: 直接搜索access_id
+    pattern2 = r'"access_id"\s*:\s*"([^"]+)"'
+    match2 = re.search(pattern2, html_content)
+    if match2:
+        return match2.group(1)
+
+    return None
+
+
+# 使用示例
+def get_w_webid_from_bilibili():
+    """从B站页面获取w_webid"""
+    url = "https://live.bilibili.com/p/eden/area-tags?parentAreaId=9&areaId=0"
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0',
+        'Referer': 'https://live.bilibili.com/'
+    }
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        w_webid = extract_w_webid_from_html(response.text)
+        return w_webid
+    else:
+        print(f"请求失败: {response.status_code}")
+        return None
+
+
 # 默认密钥（来自JS代码）
 x = {
     "wbiImgKey": "d569546b86c252:db:9bc7e99c5d71e5",
@@ -85,6 +128,9 @@ default_sub_key = v(x["wbiSubKey"])  # "446140f685;f43;e;dd83f7ef858d1cd"
 
 # 示例使用
 if __name__ == "__main__":
+    # 获取w_webid
+    w_webid = get_w_webid_from_bilibili()
+
     # 示例请求参数
     params = {
         "platform": "web",
@@ -93,7 +139,7 @@ if __name__ == "__main__":
         "sort_type": "online",
         "page": "3",
         "web_location": "444.253",
-        "w_webid": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzcG1faWQiOiI0NDQuMjUzIiwiYnV2aWQiOiJFMTRGMjdGOC0xRjA1LThGMkItNUI1Ni1DNjYwNjNFMkYxOUEwODIxNmluZm9jIiwidXNlcl9hZ2VudCI6Ik1vemlsbGEvNS4wIChNYWNpbnRvc2g7IEludGVsIE1hYyBPUyBYIDEwXzE1XzcpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xMzguMC4wLjAgU2FmYXJpLzUzNy4zNiBFZGcvMTM4LjAuMC4wIiwiY3JlYXRlZF9hdCI6MTc1MzgwMzkzOCwidHRsIjo4NjQwMCwidXJsIjoibGl2ZS5iaWxpYmlsaS5jb20vcC9lZGVuL2FyZWEtdGFncz9wYXJlbnRBcmVhSWQ9OVx1MDAyNmFyZWFJZD0wXHUwMDI2dmlzaXRfaWQ9NjF5bmhpa3g2Y3cwIiwicmVzdWx0Ijoibm9ybWFsIiwiaXNzIjoiZ2FpYSIsImlhdCI6MTc1MzgwMzkzOH0.k5gRrQGYOdwwQb9bBgDdnYJfSgJCjrYgo47aEDXQh0cj6E1sfmNqniJniQjSuUMPz2baFrnNphWjHZyvhg5HlXz1wnPDPB4jIfvMU6JTFFlgr0fZc7TCKHlTzQ3zALRvrxQL0wfIErNPht1JSdQnl7LiHDFDBDcy4sVYzsDGG54e--GTg98m_vIjn7sx7o0dZww_QFcrQLEp9D3gcYYED6UgigQF_igwDz0bs1U4l1CS5JvB40OGMYBD6LkvvSgfY7jjpe3ER837KfGJujlTT3PeWUlIUWfgz8lkxZjyX7PPXYG6KRLcbuRN3pBg9DS1vT0Yg-SdTDUfC8P8CtxCFA",
+        "w_webid": w_webid,
     }
 
     # 计算w_rid
