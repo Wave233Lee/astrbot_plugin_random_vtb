@@ -4,11 +4,13 @@ import random
 import time
 import urllib.parse
 import urllib
+import mcp
 from typing import Dict, Optional
 
 import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
+from mcp.types import CallToolResult, TextContent, ImageContent, ResourceLink
 
 from .bilibili_api_sign import calculate_wrid, get_w_webid_from_bilibili
 from .constant import *
@@ -146,10 +148,9 @@ class MyPlugin(Star):
             await self.delete_room_mapping(l[2])
             return CommandResult().message("嗨幕删除成功")
         elif len(l) != 2:
-            return CommandResult().message("""支持的命令有：
-/嗨幕 5424（直接推送指定直播间）
-/嗨幕 添加 杠杠 3473884（添加直播间号代称，代称若已存在会覆盖）
-/嗨幕 删除 杠杠 3473884（删除直播间号代称）"""
+            return CommandResult().message("""/嗨幕 5424（直接推送指定直播间）
+/嗨幕 添加 4075 22924075（添加直播间号代称，代称若已存在会覆盖）
+/嗨幕 删除 4075 22924075（删除直播间号代称）"""
                                            )
 
         room_id = l[1]
@@ -234,8 +235,10 @@ class MyPlugin(Star):
         return CommandResult(chain=chain, use_t2i_=False)
 
     @filter.llm_tool(name="search_bili_liver")
-    async def search_bili_liver(self, event: AstrMessageEvent, keyword: str):
-        '''当用户希望查询某个主播时，提取出对象关键词调用此工具。例如：梓神
+    async def search_bili_liver(self, event: AstrMessageEvent, keyword: str) -> CallToolResult:
+        '''当用户希望查询某个主播时，提取出对象关键词调用此工具。
+        如果工具返回了图片就只需要使用 send_message_to_user 然后不用回复信息了。
+        如果工具返回了文本，根据工具返回内容进行总结。
 
         Args:
             keyword(string): 关键词
@@ -273,14 +276,25 @@ class MyPlugin(Star):
             keyframe = live_info['keyframe'] or live_info['user_cover']
             logger.info(f"{title}: {keyframe}")
 
-        info_str += "。请根据直播间信息和图片进行总结直播内容，可以简单扩展介绍下例如玩的什么游戏，不用继续追问。不要输出 markdown 格式。"
+        info_str += "。请根据用户信息和直播间信息还有图片进行总结介绍。不要输出 markdown 格式。"
+        umo = event.unified_msg_origin
+        provider_id = await self.context.get_current_chat_provider_id(umo=umo)
+        cfg = self.context.get_config(umo=event.unified_msg_origin)
+        p_settings = cfg["provider"]
+        provider = next((p for p in p_settings if p.get("id") == provider_id), None)
+        modalities = provider.get("modalities", [])
+        # 判断当前模型是否支持图像
+        has_image = "image" in modalities
 
-        chain = [
-            Plain(info_str),
-        ]
-        if keyframe:
-            chain.append(Image.fromURL(keyframe))
-        return chain
+        content: list[TextContent | ImageContent] = []
+        # 有直播截图且模型支持图像输入时返回截图，否则返回文本（因为astrbot目前只会取一个content，同时返回了也没用）
+        if keyframe and has_image:
+            data, content_type = url_to_base64_image(keyframe)
+            content.append(ImageContent(type="image", data=data, mimeType=content_type))
+        else:
+            content.append(TextContent(text=info_str, type="text"))
+        result = CallToolResult(content=content)
+        return result
 
     async def save_room_mapping(self, short_name: str, full_room_id: str):
         self.data['room_mapping'][short_name] = full_room_id

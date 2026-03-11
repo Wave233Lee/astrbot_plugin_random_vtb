@@ -1,3 +1,8 @@
+import base64
+
+import requests
+
+
 def decrypt(s):
     """字符偏移解密：每个字符Unicode减1"""
     return ''.join(chr(ord(c) - 1) for c in s)
@@ -21,3 +26,20 @@ def extract_first_user_info(live_info: dict) -> dict | None:
                 }
                 return user_info
     return None
+
+def url_to_base64_image(image_url):
+    # 1. 下载图片
+    response = requests.get(image_url)
+    response.raise_for_status()  # 确保请求成功
+
+    # 2. 获取 MIME 类型（通常从 Content-Type 头获取）
+    content_type = response.headers.get('Content-Type')
+    if not content_type or not content_type.startswith('image/'):
+        # 如果头信息不明确，可以根据文件扩展名猜测，或默认使用 'image/png'
+        content_type = 'image/png'  # 或根据实际情况调整
+
+    # 3. 将二进制数据编码为 Base64
+    image_data = response.content
+    base64_encoded = base64.b64encode(image_data).decode('utf-8')
+
+    return base64_encoded,content_type
