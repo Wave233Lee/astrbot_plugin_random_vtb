@@ -10,8 +10,9 @@ import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
 
-from .bilibili_api_sign import calculate_wrid,get_w_webid_from_bilibili
+from .bilibili_api_sign import calculate_wrid, get_w_webid_from_bilibili
 from .constant import *
+from .utils import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
 from astrbot.api.event.filter import command
@@ -34,11 +35,6 @@ DD_USER_STATES: Dict[str, Optional[float]] = {}
 LG_USER_STATES: Dict[str, Optional[float]] = {}
 
 
-def v(s):
-    """字符偏移解密：每个字符Unicode减1"""
-    return ''.join(chr(ord(c) - 1) for c in s)
-
-
 @register("astrbot_plugin_random_vtb", "Sasaki", "输入/dd随机推一个管人", "1.0.0",
           "https://github.com/Wave233Lee/astrbot_plugin_random_vtb")
 class MyPlugin(Star):
@@ -50,7 +46,8 @@ class MyPlugin(Star):
                 f.write(json.dumps(DEFAULT_CFG, ensure_ascii=False, indent=4))
         with open(DATA_PATH, "r", encoding="utf-8-sig") as f:
             self.data = json.load(f)
-        self.credential = Credential(sessdata=self.cfg["sessdata"], buvid3=self.cfg["buvid3"], buvid4=self.cfg["buvid4"])
+        self.credential = Credential(sessdata=self.cfg["sessdata"], buvid3=self.cfg["buvid3"],
+                                     buvid4=self.cfg["buvid4"])
         self.scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
         self.scheduler.add_job(self.clear_cache, "cron", hour=0, minute=0)
         self.scheduler.start()
@@ -94,7 +91,7 @@ class MyPlugin(Star):
             "web_location": "444.253",
             "w_webid": bili_ticket,
         }
-        w_rid, wts = calculate_wrid(params, v(img_key), v(sub_key))
+        w_rid, wts = calculate_wrid(params, decrypt(img_key), decrypt(sub_key))
         params = {**params, "w_rid": w_rid, "wts": wts}
 
         query_string = '&'.join([f"{k}={urllib.parse.quote(str(v))}" for k, v in dict(params).items()])
@@ -149,9 +146,10 @@ class MyPlugin(Star):
             await self.delete_room_mapping(l[2])
             return CommandResult().message("嗨幕删除成功")
         elif len(l) != 2:
-            return CommandResult().message("""/嗨幕 5424（直接推送指定直播间）
-/嗨幕 添加 4075 22924075（添加直播间号代称，代称若已存在会覆盖）
-/嗨幕 删除 4075 22924075（删除直播间号代称）"""
+            return CommandResult().message("""支持的命令有：
+/嗨幕 5424（直接推送指定直播间）
+/嗨幕 添加 杠杠 3473884（添加直播间号代称，代称若已存在会覆盖）
+/嗨幕 删除 杠杠 3473884（删除直播间号代称）"""
                                            )
 
         room_id = l[1]
@@ -234,6 +232,55 @@ class MyPlugin(Star):
             Image.fromURL(item['gif']),
         ]
         return CommandResult(chain=chain, use_t2i_=False)
+
+    @filter.llm_tool(name="search_bili_liver")
+    async def search_bili_liver(self, event: AstrMessageEvent, keyword: str):
+        '''当用户希望查询某个主播时，提取出对象关键词调用此工具。例如：梓神
+
+        Args:
+            keyword(string): 关键词
+        '''
+        search_url = 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'
+        params = {
+            "page": 1,
+            "page_size": 1,
+            "platform": "pc",
+            "keyword": keyword,
+        }
+
+        search_result = await self.call_bilibili_api(search_url, params)
+
+        user_info = extract_first_user_info(search_result)
+        if user_info:
+            logger.info("提取的用户基本信息：")
+            for key, value in user_info.items():
+                logger.info(f"{key}: {value}")
+            info_str = f"用户名：{user_info['uname']}，是否在播：{user_info['is_live']}，直播间号：{user_info['room_id']}"
+        else:
+            logger.info("未找到用户信息")
+            info_str = "未找到用户信息"
+
+        keyframe = None
+        if user_info and user_info.get('is_live'):
+            live_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
+            params = {
+                "room_id": user_info.get('room_id'),
+            }
+            live_info = await self.call_bilibili_api(live_url, params)
+
+            title = live_info['title']
+            info_str += f"，直播间标题{title}"
+            keyframe = live_info['keyframe'] or live_info['user_cover']
+            logger.info(f"{title}: {keyframe}")
+
+        info_str += "。请根据直播间信息和图片进行总结直播内容，可以简单扩展介绍下例如玩的什么游戏，不用继续追问。不要输出 markdown 格式。"
+
+        chain = [
+            Plain(info_str),
+        ]
+        if keyframe:
+            chain.append(Image.fromURL(keyframe))
+        return chain
 
     async def save_room_mapping(self, short_name: str, full_room_id: str):
         self.data['room_mapping'][short_name] = full_room_id
