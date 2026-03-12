@@ -237,8 +237,8 @@ class MyPlugin(Star):
     @filter.llm_tool(name="search_bili_liver")
     async def search_bili_liver(self, event: AstrMessageEvent, keyword: str) -> CallToolResult:
         '''当用户希望查询某个主播时，提取出对象关键词调用此工具。
-        如果工具返回了图片就只需要使用 send_message_to_user 然后不用回复信息了。
-        如果工具返回了文本，根据工具返回内容进行总结。
+        包含图片时调用 send_message_to_user 发送图片给用户。
+        同时发送直播间链接：https://live.bilibili.com/blanc/{直播间号}
 
         Args:
             keyword(string): 关键词
@@ -272,11 +272,10 @@ class MyPlugin(Star):
             live_info = await self.call_bilibili_api(live_url, params)
 
             title = live_info['title']
-            info_str += f"，直播间标题{title}"
+            info_str += f"，直播间标题：{title}"
             keyframe = live_info['keyframe'] or live_info['user_cover']
             logger.info(f"{title}: {keyframe}")
 
-        info_str += "。请根据用户信息和直播间信息还有图片进行总结介绍。不要输出 markdown 格式。"
         umo = event.unified_msg_origin
         provider_id = await self.context.get_current_chat_provider_id(umo=umo)
         cfg = self.context.get_config(umo=event.unified_msg_origin)
@@ -284,16 +283,17 @@ class MyPlugin(Star):
         provider = next((p for p in p_settings if p.get("id") == provider_id), None)
         modalities = provider.get("modalities", [])
         # 判断当前模型是否支持图像
-        has_image = "image" in modalities
+        support_image = "image" in modalities
 
         content: list[TextContent | ImageContent] = []
-        # 有直播截图且模型支持图像输入时返回截图，否则返回文本（因为astrbot目前只会取一个content，同时返回了也没用）
-        if keyframe and has_image:
+        # 有直播截图且模型支持图像输入时额外返回截图
+        if keyframe and support_image:
             data, content_type = url_to_base64_image(keyframe)
             content.append(ImageContent(type="image", data=data, mimeType=content_type))
-        else:
-            content.append(TextContent(text=info_str, type="text"))
+
+        content.append(TextContent(text=info_str, type="text"))
         result = CallToolResult(content=content)
+        logger.debug(f"search_bili_liver result: {result}")
         return result
 
     async def save_room_mapping(self, short_name: str, full_room_id: str):
