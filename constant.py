@@ -25,3 +25,8 @@ random_box = [
      'gif': 'https://i0.hdslb.com/bfs/live/2a61ed098e6fa234b8259f54a492910a745958b5.gif'},
 
 ]
+live_reg = "https://live.bilibili.com/(\d+)"
+live_info_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
+live_list_url = 'https://api.live.bilibili.com/xlive/web-interface/v1/second/getList'
+usr_info_url = 'https://api.live.bilibili.com/live_user/v1/Master/info'
+search_url = 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'

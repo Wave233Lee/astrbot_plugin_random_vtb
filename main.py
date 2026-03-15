@@ -1,23 +1,28 @@
 import json
 import os
 import random
+import re
 import time
 import urllib.parse
 import urllib
-import mcp
-from typing import Dict, Optional
 
 import apscheduler
 import apscheduler.schedulers
 import apscheduler.schedulers.asyncio
 from mcp.types import CallToolResult, TextContent, ImageContent, ResourceLink
 
+from astrbot.core.message.message_event_result import MessageChain
 from .bilibili_api_sign import calculate_wrid, get_w_webid_from_bilibili
 from .constant import *
 from .utils import *
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
-from astrbot.api.event.filter import command
+from astrbot.api.event.filter import (
+    EventMessageType,
+    command,
+    event_message_type,
+    regex,
+)
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.api.message_components import Image, Plain
@@ -53,6 +58,7 @@ class MyPlugin(Star):
         self.scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
         self.scheduler.add_job(self.clear_cache, "cron", hour=0, minute=0)
         self.scheduler.start()
+        self.enable_live_detect = self.cfg.get("enable_live_detect", True)
 
     @filter.command("dd")
     async def dd(self, event: AstrMessageEvent):
@@ -76,7 +82,6 @@ class MyPlugin(Star):
             # 缓存用户请求时间
             DD_USER_STATES[user_id] = time.time()
 
-        url = 'https://api.live.bilibili.com/xlive/web-interface/v1/second/getList'
         max_page = 8
         if self.cfg["max_page"]:
             max_page = int(self.cfg["max_page"])
@@ -97,10 +102,10 @@ class MyPlugin(Star):
         params = {**params, "w_rid": w_rid, "wts": wts}
 
         query_string = '&'.join([f"{k}={urllib.parse.quote(str(v))}" for k, v in dict(params).items()])
-        full_url = f"{url}?{query_string}"
+        full_url = f"{live_list_url}?{query_string}"
         logger.info(f"{full_url}")
 
-        result = await self.call_bilibili_api(url, params)
+        result = await self.call_bilibili_api(live_list_url, params)
 
         liver_list = result['list']
         random_item = random.choice(liver_list)  # 随机选择一个对象
@@ -160,21 +165,19 @@ class MyPlugin(Star):
             room_id = room_map[room_id]
 
         logger.info(f"最终直播间号{room_id}")
-        live_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
         params = {
             "room_id": room_id,
         }
         try:
-            live_info = await self.call_bilibili_api(live_url, params)
+            live_info = await self.call_bilibili_api(live_info_url, params)
         except ResponseCodeException as e:
             logger.error(e)
             return CommandResult().message(f"纳尼，情报是假滴，直播间号{room_id}对吗")
         logger.debug("直播间信息:" + str(json.dumps(live_info, ensure_ascii=False)))
-        usr_url = 'https://api.live.bilibili.com/live_user/v1/Master/info'
         params = {
             "uid": live_info["uid"],
         }
-        usr_info = await self.call_bilibili_api(usr_url, params)
+        usr_info = await self.call_bilibili_api(usr_info_url, params)
         logger.debug("主播信息:" + str(json.dumps(usr_info, ensure_ascii=False)))
 
         u_info = dict(usr_info["info"])
@@ -243,7 +246,6 @@ class MyPlugin(Star):
         Args:
             keyword(string): 关键词
         '''
-        search_url = 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'
         params = {
             "page": 1,
             "page_size": 1,
@@ -265,11 +267,10 @@ class MyPlugin(Star):
 
         keyframe = None
         if user_info and user_info.get('is_live'):
-            live_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
             params = {
                 "room_id": user_info.get('room_id'),
             }
-            live_info = await self.call_bilibili_api(live_url, params)
+            live_info = await self.call_bilibili_api(live_info_url, params)
 
             title = live_info['title']
             info_str += f"，直播间标题：{title}"
@@ -295,6 +296,86 @@ class MyPlugin(Star):
         result = CallToolResult(content=content)
         logger.debug(f"search_bili_liver result: {result}")
         return result
+
+    @event_message_type(EventMessageType.ALL)
+    async def parse_miniapp_live_info(self, event: AstrMessageEvent):
+        if self.enable_live_detect:
+            for msg_element in event.message_obj.message:
+                if (
+                    hasattr(msg_element, "type")
+                    and msg_element.type == "Json"
+                    and hasattr(msg_element, "data")
+                ):
+                    json_string = msg_element.data
+                    try:
+                        if isinstance(json_string, dict):
+                            parsed_data = json_string
+                        else:
+                            parsed_data = json.loads(json_string)
+                        meta = parsed_data.get("meta", {})
+                        news = meta.get("news", {})
+                        jump_url = news.get("jumpUrl")
+                        room_url = await b23_to_room_url(jump_url)
+                        match = re.search(live_reg, room_url, re.IGNORECASE)
+                        if not match:
+                            return None
+                        # 匹配到直播间链接
+                        if match:
+                            room_id = match.group(1)
+                            await self.send_live_info(event, room_id)
+
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to decode JSON string: {json_string}")
+                    except Exception as e:
+                        logger.error(f"An error occurred during JSON processing: {e}")
+        return None
+
+    @regex(live_reg)
+    async def get_live_info(self, event: AstrMessageEvent):
+        room_id = None
+        if self.enable_live_detect:
+            match = re.search(live_reg, event.message_str, re.IGNORECASE)
+            if not match:
+                return None
+            # 匹配到直播间链接
+            if match:
+                room_id = match.group(1)
+        if room_id is None:
+            return None
+        logger.info(f"解析到直播间号{room_id}")
+        await self.send_live_info(event, room_id)
+        return None
+
+    async def send_live_info(self, event: AstrMessageEvent, room_id: str):
+        params = {
+            "room_id": room_id,
+        }
+        try:
+            live_info = await self.call_bilibili_api(live_info_url, params)
+        except ResponseCodeException as e:
+            logger.error(e)
+            return None
+        logger.debug("直播间信息:" + str(json.dumps(live_info, ensure_ascii=False)))
+        params = {
+            "uid": live_info["uid"],
+        }
+        usr_info = await self.call_bilibili_api(usr_info_url, params)
+        u_info = dict(usr_info["info"])
+        uname = u_info["uname"]
+        # 判断是否在播
+        if live_info["live_status"] != 1:
+            return None
+        title = live_info['title']
+        keyframe = live_info['keyframe'] or live_info['user_cover']
+        plain = (
+            f"【{uname}】正在直播:【{title}】\n"
+            f"https://live.bilibili.com/{room_id}"
+        )
+        logger.info(plain)
+        await event.send(
+            MessageChain().message(plain).url_image(keyframe)
+        )
+        return None
 
     async def save_room_mapping(self, short_name: str, full_room_id: str):
         self.data['room_mapping'][short_name] = full_room_id

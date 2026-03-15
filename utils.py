@@ -1,6 +1,10 @@
 import base64
+from typing import Optional, Dict
 
+import aiohttp
 import requests
+
+from astrbot import logger
 
 
 def decrypt(s):
@@ -43,3 +47,24 @@ def url_to_base64_image(image_url):
     base64_encoded = base64.b64encode(image_data).decode('utf-8')
 
     return base64_encoded,content_type
+
+async def b23_to_room_url(url: str) -> Optional[str]:
+    """
+    b23短链转换为原始链接
+    """
+    headers: Dict[str, str] = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(
+                url=url, headers=headers, allow_redirects=False, timeout=10
+            ) as response:
+                if 300 <= response.status < 400:
+                    location_url: str | None = response.headers.get("Location")
+                    if location_url:
+                        base_url: str = location_url.split("?", 1)[0]
+                        return base_url
+        except Exception as e:
+            logger.error(f"解析直播间链接失败 (URL: {url}): {e}")
+            return url

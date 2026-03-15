@@ -1,4 +1,10 @@
 {
+    "enable_live_detect": {
+        "description": "enable_live_detect",
+        "type": "bool",
+        "hint": "是否解析直播间链接（含小程序）",
+        "default": true
+    },
     "sessdata": {
         "description": "鉴权参数 sessdata",
         "type": "string",

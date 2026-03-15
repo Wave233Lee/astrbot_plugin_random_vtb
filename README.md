@@ -12,11 +12,16 @@
 - 自然语言询问某主播正在播什么（用别称的话阿B容易搜不出来，后面再想想办法🤔）
 
 <img src="https://alist.wavelee.top/p/Screenshot_9d26c6446fd7bb8e41d99b6262b17def.png?sign=gFq-vWJpngwAIKulKAFOiycz_zMfeVLO_xjfHvo0IBE=:0" width="420px">
-<img src="https://alist.wavelee.top/d/QQ20260312-001137.png?sign=DAFdpQArdt_JN8TwpopKQNLGXaCWm6zbIrILo8KB_9E=:0" width="420px">
-<img src="https://alist.wavelee.top/d/QQ20260312-002235.png?sign=HtVGzH8-Nu3y9_OUDEK8Lcyx-GAqLcy6yO1bKSZMTvA=:0" width="420px">
-<img src="https://alist.wavelee.top/d/QQ20260312-002522.png?sign=RteqYnANeGOF1z3LDkDG3w1uYXeLruNDcXC_DsAWCT0=:0" width="420px">
+
+> 询问主播直播内容功能有时会重复发送消息，跟astr代码有关，后面再优化😈
+
+<img src="https://alist.wavelee.top/d/QQ20260315-121635.png?sign=_xh7nxeFOaUJezNgmmncII8RAWB_3H0-YNtpQgRfnNg=:0" width="420px">
+
+<img src="https://alist.wavelee.top/d/QQ20260315-120933.png?sign=e_UoAEh0_aXlCOr9ftzFbWS2hWfOAxv9kYFs4XbWCsw=:0" width="420px">
+
 
 ## 可调整的配置
+- enable_live_detect: 是否自动解析直播间链接并发送直播信息和关键帧，默认开启
 - max_page: 直播间列表最大随机页数，太大的话可能会超出总数而且随机到没人的直播间
 - interval_seconds: dd命令响应间隔，默认10秒
 
@@ -30,6 +35,9 @@
 > 看管人，就来5424
 
 ## 更新日志
+
+### v1.2.0
+- 新增自动识别直播间链接发送关键帧
 
 ### v1.1.9
 - 新增自然语言询问主播直播内容功能
