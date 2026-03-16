@@ -315,6 +315,8 @@ class MyPlugin(Star):
                         meta = parsed_data.get("meta", {})
                         news = meta.get("news", {})
                         jump_url = news.get("jumpUrl")
+                        if not jump_url:
+                            return None
                         room_url = await b23_to_room_url(jump_url)
                         match = re.search(live_reg, room_url, re.IGNORECASE)
                         if not match:
