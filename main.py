@@ -37,10 +37,6 @@ DEFAULT_CFG = {
 }
 DATA_PATH = "data/astrbot_plugin_random_vtb.json"
 
-# 用于跟踪每个用户的状态，防止重复请求，重复间隔可配置
-DD_USER_STATES: Dict[str, Optional[float]] = {}
-LG_USER_STATES: Dict[str, Optional[float]] = {}
-
 
 @register("astrbot_plugin_random_vtb", "Sasaki", "输入/dd随机推一个管人", "1.0.0",
           "https://github.com/Wave233Lee/astrbot_plugin_random_vtb")
@@ -56,15 +52,12 @@ class MyPlugin(Star):
         self.credential = Credential(sessdata=self.cfg["sessdata"], buvid3=self.cfg["buvid3"],
                                      buvid4=self.cfg["buvid4"])
         self.scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
-        self.scheduler.add_job(self.clear_cache, "cron", hour=0, minute=0)
         self.scheduler.start()
         self.enable_live_detect = self.cfg.get("enable_live_detect", True)
 
     @filter.command("dd")
     async def dd(self, event: AstrMessageEvent):
         """输入/dd随机获取一个管人直播间"""
-        interval_seconds = self.cfg["interval_seconds"]
-        user_id = event.get_sender_id()  # 获取用户ID
         area_name = "全部"
         area_id = area_mapping[area_name]
         l = event.message_str.split(" ")
@@ -72,15 +65,6 @@ class MyPlugin(Star):
             area_name = l[1]
             if area_name in area_mapping:
                 area_id = area_mapping[area_name]
-
-        # 判断响应间隔
-        if user_id in DD_USER_STATES:
-            elapsed = int((time.time() - DD_USER_STATES[user_id]))
-            if elapsed < interval_seconds:
-                return CommandResult().message("你的下一个管人还需" + str(interval_seconds - elapsed) + "秒到达")
-        else:
-            # 缓存用户请求时间
-            DD_USER_STATES[user_id] = time.time()
 
         max_page = 8
         if self.cfg["max_page"]:
@@ -129,102 +113,9 @@ class MyPlugin(Star):
 
         return CommandResult(chain=chain, use_t2i_=False)
 
-    @command("嗨幕")
-    async def order(self, event: AstrMessageEvent):
-        """获取指定直播间号管人直播间
-           /嗨幕 5424（直接推送指定直播间）
-           /嗨幕 添加 4075 22924075（添加直播间号代称，代称已存在会覆盖）
-           /嗨幕 删除 4075 22924075（删除直播间号代称）
-        """
-        l = event.message_str.split(" ")
-        # 修改直播间映射表
-        if "添加" in l:
-            if len(l) != 4:
-                return CommandResult().message(
-                    "格式：嗨幕 添加 [代称] [完整直播间号] ..."
-                )
-            await self.save_room_mapping(l[2], l[3])
-            return CommandResult().message(f"嗨幕添加成功，马上/嗨幕 {l[2]}")
-        elif "删除" in l:
-            if len(l) != 4:
-                return CommandResult().message(
-                    "格式：嗨幕 删除 [代称] [完整直播间号] ..."
-                )
-            await self.delete_room_mapping(l[2])
-            return CommandResult().message("嗨幕删除成功")
-        elif len(l) != 2:
-            return CommandResult().message("""/嗨幕 5424（直接推送指定直播间）
-/嗨幕 添加 4075 22924075（添加直播间号代称，代称若已存在会覆盖）
-/嗨幕 删除 4075 22924075（删除直播间号代称）"""
-                                           )
-
-        room_id = l[1]
-        # 映射处理
-        room_map = dict(self.data['room_mapping'])
-        if room_id in room_map:
-            room_id = room_map[room_id]
-
-        logger.info(f"最终直播间号{room_id}")
-        params = {
-            "room_id": room_id,
-        }
-        try:
-            live_info = await self.call_bilibili_api(live_info_url, params)
-        except ResponseCodeException as e:
-            logger.error(e)
-            return CommandResult().message(f"纳尼，情报是假滴，直播间号{room_id}对吗")
-        logger.debug("直播间信息:" + str(json.dumps(live_info, ensure_ascii=False)))
-        params = {
-            "uid": live_info["uid"],
-        }
-        usr_info = await self.call_bilibili_api(usr_info_url, params)
-        logger.debug("主播信息:" + str(json.dumps(usr_info, ensure_ascii=False)))
-
-        u_info = dict(usr_info["info"])
-        uname = u_info["uname"]
-        face = u_info["face"]
-
-        # 判断是否在播
-        if live_info["live_status"] != 1:
-            plain = (
-                f"赫赫，【{uname}】根本没在播嘛\n"
-                f"直播间: https://live.bilibili.com/{room_id}\n"
-            )
-            logger.info(plain)
-            chain = [
-                Plain(plain),
-                Image.fromURL(face),
-            ]
-            return CommandResult(chain=chain, use_t2i_=False)
-
-        title = live_info['title']
-        keyframe = live_info['keyframe'] or live_info['user_cover']
-
-        plain = (
-            f"赫赫，为你嗨幕到了【{uname}】\n"
-            f"正在直播:【{title}】\n"
-            f"https://live.bilibili.com/{room_id}"
-        )
-        logger.info(plain)
-        chain = [
-            Plain(plain),
-            Image.fromURL(keyframe),
-        ]
-        return CommandResult(chain=chain, use_t2i_=False)
-
     @command("点灯")
     async def lighting(self, event: AstrMessageEvent):
         """送出一个奇遇盲盒"""
-        interval_seconds = self.cfg["interval_seconds"]
-        user_id = event.get_sender_id()  # 获取用户ID
-        # 判断响应间隔
-        if user_id in LG_USER_STATES:
-            elapsed = int((time.time() - LG_USER_STATES[user_id]))
-            if elapsed < interval_seconds:
-                return CommandResult().message("没米了，等" + str(interval_seconds - elapsed) + "秒再送吧")
-        else:
-            # 缓存用户请求时间
-            LG_USER_STATES[user_id] = time.time()
 
         sender_name = event.get_sender_name()
         # 直接使用 random.choices 按权重随机选择（返回列表，取第一个元素）
@@ -296,6 +187,42 @@ class MyPlugin(Star):
         result = CallToolResult(content=content)
         logger.debug(f"search_bili_liver result: {result}")
         return result
+
+    @filter.llm_tool(name="search_living_vtb")
+    async def search_living_vtb(self, event: AstrMessageEvent) -> CallToolResult:
+        '''当用户询问有哪些人在播时调用此工具，随机推几个当前正在直播的管人。
+        输出名称、直播间标题、直播间链接。
+        '''
+        img_key = self.cfg["img_key"]
+        sub_key = self.cfg["sub_key"]
+        bili_ticket = get_w_webid_from_bilibili()
+        params = {
+            "area_id": "0",
+            "page": 1,
+            "parent_area_id": "9",
+            "platform": "web",
+            "web_location": "444.253",
+            "w_webid": bili_ticket,
+        }
+        w_rid, wts = calculate_wrid(params, decrypt(img_key), decrypt(sub_key))
+        params = {**params, "w_rid": w_rid, "wts": wts}
+
+        result = await self.call_bilibili_api(live_list_url, params)
+        liver_list = result.get('list') or []
+        if not liver_list:
+            return CallToolResult(content=[TextContent(text="暂无正在直播的管人", type="text")])
+
+        sample = random.sample(liver_list, min(5, len(liver_list)))
+        lines = []
+        for item in sample:
+            uname = item.get('uname', '')
+            title = item.get('title', '')
+            roomid = item.get('roomid', '')
+            lines.append(
+                f"【{uname}】正在直播:【{title}】https://live.bilibili.com/{roomid}"
+            )
+        info_str = "\n\n".join(lines)
+        return CallToolResult(content=[TextContent(text=info_str, type="text")])
 
     @event_message_type(EventMessageType.ALL)
     async def parse_miniapp_live_info(self, event: AstrMessageEvent):
@@ -378,30 +305,6 @@ class MyPlugin(Star):
             MessageChain().message(plain).url_image(keyframe)
         )
         return None
-
-    async def save_room_mapping(self, short_name: str, full_room_id: str):
-        self.data['room_mapping'][short_name] = full_room_id
-        with open(DATA_PATH, "w", encoding="utf-8") as f:
-            f.write(json.dumps(self.data, ensure_ascii=False, indent=2))
-
-    async def delete_room_mapping(self, short_name: str):
-        if short_name in self.data['room_mapping']:
-            del self.data['room_mapping'][short_name]
-        with open(DATA_PATH, "w", encoding="utf-8") as f:
-            f.write(json.dumps(self.data, ensure_ascii=False, indent=2))
-
-    async def clear_cache(self):
-        """每日定时清理过期缓存"""
-        logger.info(f"每日定时清理过期缓存")
-        interval_seconds = self.cfg["interval_seconds"]
-        for user_id, last_time in DD_USER_STATES:
-            elapsed = str(int((time.time() - last_time) / 1000))
-            if elapsed > interval_seconds:
-                del DD_USER_STATES[user_id]
-        for user_id, last_time in LG_USER_STATES:
-            elapsed = str(int((time.time() - last_time) / 1000))
-            if elapsed > interval_seconds:
-                del LG_USER_STATES[user_id]
 
     async def call_bilibili_api(self, url: str, params: dict):
         return await Api(url=url, method="GET", credential=self.credential).update_params(**params).result
