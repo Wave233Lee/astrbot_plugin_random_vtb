@@ -30,6 +30,13 @@
         "obvious_hint": false,
         "default": 4
     },
+    "search_count": {
+        "description": "search_count",
+        "type": "int",
+        "hint": "每次推荐几个管人，默认3",
+        "obvious_hint": false,
+        "default": 3
+    },
     "interval_seconds": {
         "description": "interval_seconds",
         "type": "int",

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import random
@@ -15,6 +16,7 @@ from astrbot.core.message.message_event_result import MessageChain
 from .bilibili_api_sign import calculate_wrid, get_w_webid_from_bilibili
 from .constant import *
 from .utils import *
+from .live_search import BiliSearcher, clean_html, weighted_sample
 
 from astrbot.api.event import filter, AstrMessageEvent, CommandResult, MessageEventResult
 from astrbot.api.event.filter import (
@@ -54,6 +56,13 @@ class MyPlugin(Star):
         self.scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
         self.scheduler.start()
         self.enable_live_detect = self.cfg.get("enable_live_detect", True)
+        # 带 WBI 签名的直播间搜索器(用于按条件搜索管人)
+        cookie = (
+            f"sessdata={urllib.parse.unquote(self.cfg.get('sessdata', ''))}; "
+            f"buvid3={self.cfg.get('buvid3', '')}; "
+            f"buvid4={urllib.parse.unquote(self.cfg.get('buvid4', ''))}"
+        )
+        self.searcher = BiliSearcher(cookie)
 
     @filter.command("dd")
     async def dd(self, event: AstrMessageEvent):
@@ -189,40 +198,119 @@ class MyPlugin(Star):
         return result
 
     @filter.llm_tool(name="search_living_vtb")
-    async def search_living_vtb(self, event: AstrMessageEvent) -> CallToolResult:
+    async def search_living_vtb(self, event: AstrMessageEvent, condition: str = "") -> CallToolResult:
         '''当用户询问有哪些人在播时调用此工具，随机推几个当前正在直播的管人。
-        输出名称、直播间标题、直播间链接。
+        可以带上条件（如"要唱歌的""在玩游戏的""杂谈电台"），会按条件筛选后再随机推荐。
+        直播间会以带实时截图的消息推送出去，返回内容只需简短告知已推送，不要重复罗列列表。
+
+        Args:
+            condition(string): 筛选条件，例如"要唱歌的""会唱歌的""玩游戏的"。留空表示不筛选，直接随机推荐正在直播的管人
         '''
-        img_key = self.cfg["img_key"]
-        sub_key = self.cfg["sub_key"]
-        bili_ticket = get_w_webid_from_bilibili()
-        params = {
-            "area_id": "0",
-            "page": 1,
-            "parent_area_id": "9",
-            "platform": "web",
-            "web_location": "444.253",
-            "w_webid": bili_ticket,
-        }
-        w_rid, wts = calculate_wrid(params, decrypt(img_key), decrypt(sub_key))
-        params = {**params, "w_rid": w_rid, "wts": wts}
+        condition = (condition or "").strip()
+        count = int(self.cfg.get("search_count", 3) or 3)
 
-        result = await self.call_bilibili_api(live_list_url, params)
-        liver_list = result.get('list') or []
-        if not liver_list:
+        # 带条件: 语义搜索 + 漏斗过滤
+        if condition:
+            rooms = await self.search_vtb_by_condition(condition)
+            if rooms:
+                picked = weighted_sample(rooms, count)
+                await self.push_rooms(event, picked)
+                names = "、".join(f"{r.get('uname')}" for r in picked)
+                logger.info(f"按条件[{condition}]搜到 {len(rooms)} 个管人，已推送 {len(picked)} 个")
+                return CallToolResult(content=[TextContent(
+                    text=f"已推送 {len(picked)} 个符合条件的在播管人直播间(附实时截图)：{names}", type="text")])
+            logger.info(f"按条件[{condition}]没搜到，降级为随机推荐")
+
+        # 不带条件(或条件没搜到): 走分区列表随机
+        rooms = await self.random_living_vtb()
+        if not rooms:
             return CallToolResult(content=[TextContent(text="暂无正在直播的管人", type="text")])
+        await self.push_rooms(event, rooms)
+        names = "、".join(f"{r.get('uname')}" for r in rooms)
+        return CallToolResult(content=[TextContent(
+            text=f"已推送 {len(rooms)} 个在播管人直播间(附实时截图)：{names}", type="text")])
 
-        sample = random.sample(liver_list, min(5, len(liver_list)))
-        lines = []
-        for item in sample:
+    async def push_rooms(self, event: AstrMessageEvent, rooms: list):
+        """把直播间以带实时截图的消息推送出去(像 /dd 那样)"""
+        for item in rooms:
+            cover = (item.get('cover') or item.get('user_cover')
+                     or item.get('system_cover') or '')
+            if cover.startswith('//'):
+                cover = 'https:' + cover
             uname = item.get('uname', '')
-            title = item.get('title', '')
+            title = clean_html(item.get('title', ''))
             roomid = item.get('roomid', '')
+            area = item.get('_area') or clean_html(item.get('cate_name', ''))
+            plain = (f"【{uname}】正在直播:【{title}】\n"
+                     f"{area}\n"
+                     f"https://live.bilibili.com/{roomid}")
+            chain = MessageChain().message(plain)
+            if cover:
+                chain = chain.url_image(cover)
+            try:
+                await event.send(chain)
+            except Exception as e:
+                logger.error(f"推送直播间失败: {e}")
+            await asyncio.sleep(0.4)
+
+    # ---------------- 条件搜索 ----------------
+    async def search_vtb_by_condition(self, condition: str) -> list:
+        """按条件搜索正在直播的虚拟主播(管人)"""
+        try:
+            return await self.searcher.search_by_condition(condition)
+        except Exception as e:
+            logger.error(f"条件搜索失败: {e}")
+            return []
+
+    async def random_living_vtb(self) -> list:
+        """随机取几个正在直播的管人(原逻辑)，接口挂了就用搜索接口兜底"""
+        try:
+            img_key = self.cfg["img_key"]
+            sub_key = self.cfg["sub_key"]
+            bili_ticket = get_w_webid_from_bilibili()
+            params = {
+                "area_id": "0",
+                "page": 1,
+                "parent_area_id": "9",
+                "platform": "web",
+                "web_location": "444.253",
+                "w_webid": bili_ticket,
+            }
+            w_rid, wts = calculate_wrid(params, decrypt(img_key), decrypt(sub_key))
+            params = {**params, "w_rid": w_rid, "wts": wts}
+
+            result = await self.call_bilibili_api(live_list_url, params)
+            liver_list = result.get('list') or []
+            if liver_list:
+                return random.sample(liver_list, min(5, len(liver_list)))
+            logger.warning("分区列表接口返回空，尝试搜索兜底")
+        except Exception as e:
+            logger.error(f"分区列表接口失败，尝试搜索兜底: {e}")
+        # 兜底: 用搜索接口捞几个在播的管人
+        try:
+            return await self.searcher.search_virtual_up()
+        except Exception as e:
+            logger.error(f"搜索兜底也失败: {e}")
+        return []
+
+    @staticmethod
+    def format_rooms(rooms: list) -> str:
+        """把直播间列表格式化成给模型看的文本"""
+        lines = []
+        for item in rooms:
+            uname = item.get('uname', '')
+            title = clean_html(item.get('title', ''))
+            roomid = item.get('roomid', '')
+            area = item.get('_area') or clean_html(item.get('cate_name', ''))
+            tags = item.get('tags', '')
+            extra = f" | {area}" if area else ""
+            if tags:
+                extra += f" | 标签:{tags}"
             lines.append(
-                f"【{uname}】正在直播:【{title}】https://live.bilibili.com/{roomid}"
+                f"【{uname}】正在直播:【{title}】{extra}\n"
+                f"https://live.bilibili.com/{roomid}"
             )
-        info_str = "\n\n".join(lines)
-        return CallToolResult(content=[TextContent(text=info_str, type="text")])
+        return "\n\n".join(lines)
 
     @event_message_type(EventMessageType.ALL)
     async def parse_miniapp_live_info(self, event: AstrMessageEvent):
