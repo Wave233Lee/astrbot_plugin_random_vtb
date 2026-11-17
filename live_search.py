@@ -54,9 +54,31 @@ STOP_WORDS = ("我想要", "我想看", "推荐", "找一下", "找找", "帮我
                "管人", "正在", "现在", "在播", "的", "了", "吗", "呢", "呀",
                "会", "想", "要", "看", "来", "个", "些")
 
+IMPERATIVE_WORDS = ("给我", "帮我", "推", "来", "整", "找", "来点")
+
 MAX_KEYWORDS = 3        # 一次最多打几个关键词, 多了容易被风控
 CACHE_TTL = 600        # 关键词结果缓存 10 分钟
 KEY_TTL = 1800         # wbi key 缓存 30 分钟
+
+
+CN_NUM = {"零": 0, "一": 1, "二": 2, "两": 2, "俩": 2, "三": 3, "四": 4,
+          "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+
+def parse_count(text: str) -> int:
+    """
+    从自然语言里解析数量, 支持 "2个" "两个" "来3个"
+    只认后面跟"个/名/条"的形式, 避免把"二次元""七夕"误判成数量
+    """
+    if not text:
+        return 0
+    m = re.search(r"(\d+)\s*[个名条]", text)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"([零一二两俩三四五六七八九十])\s*[个名条]", text)
+    if m:
+        return CN_NUM.get(m.group(1), 0)
+    return 0
 
 
 def clean_html(s: str) -> str:
@@ -83,6 +105,11 @@ def extract_keywords(condition: str) -> List[str]:
 
     # 2) 清洗后的原条件本身(去掉噪声词)也算一个关键词
     stripped = cond
+    # 先去掉数量表达("2个")和祈使动词("给我""推"), 免得混进检索关键词
+    stripped = re.sub(r"\d+\s*[个名条]", " ", stripped)
+    stripped = re.sub(r"[零一二两俩三四五六七八九十]\s*[个名条]", " ", stripped)
+    for w in IMPERATIVE_WORDS:
+        stripped = stripped.replace(w, " ")
     for w in STOP_WORDS:
         stripped = stripped.replace(w, " ")
     stripped = stripped.strip()

@@ -33,7 +33,7 @@
     "search_count": {
         "description": "search_count",
         "type": "int",
-        "hint": "每次推荐几个管人，默认3",
+        "hint": "每次推荐几个管人，默认3；同时也是用户指定数量的上限(用户说推5个但这里配3就只给3个)",
         "obvious_hint": false,
         "default": 3
     },
